@@ -1,0 +1,9 @@
+{
+    "name": "tim/tim-laravel",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    }
+}

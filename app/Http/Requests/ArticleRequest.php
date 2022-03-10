@@ -27,7 +27,14 @@ class ArticleRequest extends FormRequest
             $idToIgnore = ($this->route()->parameter('article')->id);
             $rules['slug'][2] = "unique:articles,slug,$idToIgnore";
         }
-
         return $rules;
+    }
+
+    public function getTags()
+    {
+        $tags = collect(explode(',', request('tags')))->keyBy(function ($item) {
+            return $item;
+        });
+        return $tags;
     }
 }

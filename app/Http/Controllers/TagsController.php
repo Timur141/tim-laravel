@@ -8,7 +8,8 @@ class TagsController extends Controller
 {
     public function index (Tag $tag)
     {
+        $tidings = $tag->tidings()->with('tags')->get();
         $articles = $tag->articles()->with('tags')->get();
-        return view('articles.index', compact('articles'));
+        return view('tags.index', compact(['articles', 'tidings']));
     }
 }

@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Comment;
 use App\Notifications\ArticleCreated;
 use App\Notifications\ArticleUpdated;
 use App\Notifications\ArticleDeleted;
 use App\Http\Requests\ArticleRequest;
 use App\Models\Article;
+use App\Service\Pushall;
 use App\Services\TagsSynchronizer;
 
 class ArticlesController extends Controller
@@ -19,7 +21,7 @@ class ArticlesController extends Controller
 
     public function index()
     {
-        $articles = auth()->user()->articles()->with('tags')->latest()->get();
+        $articles = auth()->user()->articles()->with('tags')->latest()->simplePaginate(10);
         return view('articles.index', compact('articles'));
     }
 
@@ -30,6 +32,9 @@ class ArticlesController extends Controller
 
     public function show(Article $article)
     {
+        $article = $article->load(['comments' => function ($query) {
+            $query->orderByDesc('created_at');
+    }]);
         return view('articles.show', compact('article'));
     }
 
@@ -38,7 +43,7 @@ class ArticlesController extends Controller
         return view('articles.create', compact('article'));
     }
 
-    public function store(ArticleRequest $articleRequest, TagsSynchronizer $tagsSynchronizer)
+    public function store(ArticleRequest $articleRequest, TagsSynchronizer $tagsSynchronizer, Pushall $pushall)
     {
         $validated = $articleRequest->validated();
         $validated['created_at'] = (request()->get('published') === 'on' ? time() : null);
@@ -49,7 +54,9 @@ class ArticlesController extends Controller
         $tags = $articleRequest->getTags();
         $tagsSynchronizer->sync($tags, $article);
 
+
         auth()->user()->notify(new ArticleCreated($article));
+        $pushall->send('Article created', $article->name);
 
         return redirect(route('articles.index'))->with('status', 'Article saved!');
     }
@@ -74,6 +81,17 @@ class ArticlesController extends Controller
         auth()->user()->notify(new ArticleUpdated($article));
 
         return redirect(route('articles.index'))->with('status', 'Article changed!');
+    }
+
+    public function comment(Article $article)
+    {
+        $validated = $this->validate(request(), [
+            'text' => 'required',
+        ]);
+        $validated['user_id'] = auth()->id();
+        $comment = new Comment($validated);
+        $article->comments()->save($comment);
+        return back()->with('status', 'Comment created!');
     }
 
     public function destroy(Article $article)
